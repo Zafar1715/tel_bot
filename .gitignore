@@ -1,4 +1,3 @@
 __pycache__/
-*.pyc
 nakladnye.db
-.env
+*.pyc

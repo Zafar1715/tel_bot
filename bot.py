@@ -12,7 +12,7 @@ from telegram.ext import (
 )
 
 # ================== TOKEN ==================
-TOKEN = "ТУТ_ТВОЙ_ТОКЕН_ОТ_BOTFATHER"
+TOKEN = "8658556905:AAEQfrHltU9yCFE2b45jmmHXjB61enYwGvY"
 
 # ================== INIT DB ==================
 def init_db():
@@ -49,26 +49,20 @@ init_db()
 DATE, DRIVER, CAR, TONS, INVOICE, OBJECT = range(6)
 
 # ================== MENU ==================
-menu = ReplyKeyboardMarkup([
-    ["➕ Добавить", "📊 Отчёт"],
-    ["📁 Excel"]
-], resize_keyboard=True)
+menu = ReplyKeyboardMarkup(
+    [["➕ Добавить", "📊 Отчёт"], ["📁 Excel"]],
+    resize_keyboard=True
+)
 
-# ================== DB FUNCTIONS ==================
+# ================== DB ==================
 def add_invoice(data):
     conn = sqlite3.connect("nakladnye.db")
     cursor = conn.cursor()
 
     cursor.execute("""
         INSERT INTO invoices (
-            date,
-            driver,
-            car_number,
-            tons,
-            invoice_number,
-            object_name
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
+            date, driver, car_number, tons, invoice_number, object_name
+        ) VALUES (?, ?, ?, ?, ?, ?)
     """, (
         data["date"],
         data["driver"],
@@ -93,7 +87,6 @@ def get_report():
     """)
 
     rows = cursor.fetchall()
-
     conn.close()
     return rows
 
@@ -110,14 +103,14 @@ def log_action(user_id, action):
     conn.commit()
     conn.close()
 
-# ================== START ==================
+# ================== HANDLERS ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🏭 DISPATCH SYSTEM ONLINE",
         reply_markup=menu
     )
 
-# ================== ADD FLOW ==================
+# ---- ADD FLOW ----
 async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📅 Введите дату:")
     return DATE
@@ -159,45 +152,38 @@ async def object_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_action(update.effective_user.id, "ADD INVOICE")
 
     await update.message.reply_text(
-        "✅ Накладная сохранена",
+        "✅ Сохранено",
         reply_markup=menu
     )
 
     return ConversationHandler.END
 
-# ================== REPORT ==================
+# ---- REPORT ----
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = get_report()
 
     if not rows:
-        await update.message.reply_text("📭 Данных пока нет")
+        await update.message.reply_text("📭 Нет данных")
         return
 
-    text = "📊 ОТЧЁТ ПО ОБЪЕКТАМ:\n\n"
-
+    text = "📊 ОТЧЁТ:\n\n"
     for obj, tons in rows:
         text += f"🏗 {obj}: {tons} тонн\n"
 
     await update.message.reply_text(text)
 
-# ================== EXCEL ==================
+# ---- EXCEL ----
 async def excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect("nakladnye.db")
 
-    df = pd.read_sql_query(
-        "SELECT * FROM invoices",
-        conn
-    )
+    df = pd.read_sql_query("SELECT * FROM invoices", conn)
 
     file_name = "report.xlsx"
-
     df.to_excel(file_name, index=False)
 
     conn.close()
 
-    await update.message.reply_document(
-        document=open(file_name, "rb")
-    )
+    await update.message.reply_document(document=open(file_name, "rb"))
 
 # ================== MAIN ==================
 def main():
@@ -205,12 +191,8 @@ def main():
 
     conv = ConversationHandler(
         entry_points=[
-            MessageHandler(
-                filters.Regex("^➕ Добавить$"),
-                add_start
-            )
+            MessageHandler(filters.Regex("^➕ Добавить$"), add_start)
         ],
-
         states={
             DATE: [MessageHandler(filters.TEXT, date)],
             DRIVER: [MessageHandler(filters.TEXT, driver)],
@@ -219,31 +201,17 @@ def main():
             INVOICE: [MessageHandler(filters.TEXT, invoice)],
             OBJECT: [MessageHandler(filters.TEXT, object_name)],
         },
-
         fallbacks=[]
     )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex("^📊 Отчёт$"),
-            report
-        )
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex("^📁 Excel$"),
-            excel
-        )
-    )
+    app.add_handler(MessageHandler(filters.Regex("^📊 Отчёт$"), report))
+    app.add_handler(MessageHandler(filters.Regex("^📁 Excel$"), excel))
 
     print("🚛 BOT STARTED")
 
     app.run_polling()
 
-# ================== START APP ==================
 if __name__ == "__main__":
     main()
