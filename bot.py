@@ -1,6 +1,6 @@
 import sqlite3
 import pandas as pd
-import asyncio
+import os
 
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
@@ -13,8 +13,10 @@ from telegram.ext import (
 )
 
 # ================== TOKEN ==================
-import os
 TOKEN = os.getenv("TOKEN")
+
+if not TOKEN:
+    raise ValueError("TOKEN не найден в Environment Variables Render")
 
 # ================== INIT DB ==================
 def init_db():
@@ -112,7 +114,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=menu
     )
 
-# ---- ADD FLOW ----
 async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📅 Введите дату:")
     return DATE
@@ -153,25 +154,22 @@ async def object_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_invoice(context.user_data)
     log_action(update.effective_user.id, "ADD INVOICE")
 
-    await update.message.reply_text("✅ Накладная сохранена", reply_markup=menu)
+    await update.message.reply_text("✅ Сохранено", reply_markup=menu)
     return ConversationHandler.END
 
-# ---- REPORT ----
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = get_report()
 
     if not rows:
-        await update.message.reply_text("📭 Данных пока нет")
+        await update.message.reply_text("📭 Нет данных")
         return
 
-    text = "📊 ОТЧЁТ ПО ОБЪЕКТАМ:\n\n"
-
+    text = "📊 ОТЧЁТ:\n\n"
     for obj, tons in rows:
         text += f"🏗 {obj}: {tons} тонн\n"
 
     await update.message.reply_text(text)
 
-# ---- EXCEL ----
 async def excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect("nakladnye.db")
 
@@ -185,13 +183,11 @@ async def excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_document(document=open(file_name, "rb"))
 
 # ================== MAIN ==================
-async def main():
+def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     conv = ConversationHandler(
-        entry_points=[
-            MessageHandler(filters.Regex("^➕ Добавить$"), add_start)
-        ],
+        entry_points=[MessageHandler(filters.Regex("^➕ Добавить$"), add_start)],
         states={
             DATE: [MessageHandler(filters.TEXT, date)],
             DRIVER: [MessageHandler(filters.TEXT, driver)],
@@ -210,11 +206,9 @@ async def main():
 
     print("🚛 BOT STARTED")
 
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
-    await app.idle()
+    # ❗ ВАЖНО: Render требует run_polling()
+    app.run_polling(drop_pending_updates=True)
 
 # ================== START ==================
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
