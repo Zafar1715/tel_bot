@@ -1,5 +1,6 @@
 import sqlite3
 import pandas as pd
+import asyncio
 
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
@@ -13,7 +14,6 @@ from telegram.ext import (
 
 # ================== TOKEN ==================
 import os
-
 TOKEN = os.getenv("TOKEN")
 
 # ================== INIT DB ==================
@@ -153,11 +153,7 @@ async def object_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_invoice(context.user_data)
     log_action(update.effective_user.id, "ADD INVOICE")
 
-    await update.message.reply_text(
-        "✅ Сохранено",
-        reply_markup=menu
-    )
-
+    await update.message.reply_text("✅ Накладная сохранена", reply_markup=menu)
     return ConversationHandler.END
 
 # ---- REPORT ----
@@ -165,10 +161,11 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = get_report()
 
     if not rows:
-        await update.message.reply_text("📭 Нет данных")
+        await update.message.reply_text("📭 Данных пока нет")
         return
 
-    text = "📊 ОТЧЁТ:\n\n"
+    text = "📊 ОТЧЁТ ПО ОБЪЕКТАМ:\n\n"
+
     for obj, tons in rows:
         text += f"🏗 {obj}: {tons} тонн\n"
 
@@ -188,7 +185,7 @@ async def excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_document(document=open(file_name, "rb"))
 
 # ================== MAIN ==================
-def main():
+async def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     conv = ConversationHandler(
@@ -213,7 +210,11 @@ def main():
 
     print("🚛 BOT STARTED")
 
-    app.run_polling()
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    await app.idle()
 
+# ================== START ==================
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
