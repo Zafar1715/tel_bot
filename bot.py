@@ -12,7 +12,9 @@ from telegram.ext import (
 )
 
 # ================== TOKEN ==================
-TOKEN = "8658556905:AAEQfrHltU9yCFE2b45jmmHXjB61enYwGvY"
+import os
+
+TOKEN = os.getenv("TOKEN")
 
 # ================== INIT DB ==================
 def init_db():
